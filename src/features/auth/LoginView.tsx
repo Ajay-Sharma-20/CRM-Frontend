@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../../lib/auth/AuthContext';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
@@ -9,12 +9,19 @@ import { Sparkles, PhoneCall, Shield, Users, BarChart3 } from 'lucide-react';
 export const LoginView: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login } = useAuth();
+  const { login, token, user: currentUser, isLoading: authLoading } = useAuth();
 
   const [email, setEmail] = useState('owner@apexdynamics.com');
   const [password, setPassword] = useState('Password123!');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // If already authenticated and not loading, redirect to appropriate workspace
+  if (!authLoading && token && currentUser) {
+    const from = (location.state as any)?.from?.pathname;
+    const dest = from && from !== '/login' ? from : (currentUser.role?.slug === 'telecaller' ? '/telecaller' : '/dashboard');
+    return <Navigate to={dest} replace />;
+  }
 
   const queryParams = new URLSearchParams(location.search);
   const isExpired = queryParams.get('expired') === '1';
@@ -38,9 +45,11 @@ export const LoginView: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const user = await login(email, password);
-      // Route based on role
-      if (user.role?.slug === 'telecaller') {
+      const loggedInUser = await login(email, password);
+      const from = (location.state as any)?.from?.pathname;
+      if (from && from !== '/login') {
+        navigate(from);
+      } else if (loggedInUser.role?.slug === 'telecaller') {
         navigate('/telecaller');
       } else {
         navigate('/dashboard');
