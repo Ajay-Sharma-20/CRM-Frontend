@@ -22,6 +22,8 @@ import {
   CheckCircle,
   FileText,
   Plus,
+  Building2,
+  Tag,
 } from 'lucide-react';
 
 export const LeadDetailView: React.FC = () => {
@@ -153,6 +155,11 @@ export const LeadDetailView: React.FC = () => {
               </h1>
               <StatusBadge status={lead.status} />
               <Badge variant="gray">{lead.source}</Badge>
+              {lead.business && (
+                <span className="text-xs bg-purple-100 text-purple-800 font-semibold px-2.5 py-0.5 rounded-lg border border-purple-200">
+                  🏢 {lead.business.name}
+                </span>
+              )}
             </div>
             <div className="mt-2 flex items-center gap-4 text-xs text-zinc-600 flex-wrap">
               <span className="flex items-center gap-1.5 font-medium">
@@ -187,6 +194,28 @@ export const LeadDetailView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Business-Specific Custom Attributes Card */}
+      {lead.custom_fields && Object.keys(lead.custom_fields).length > 0 && (
+        <Card title={`Business Attributes (${lead.business?.name || 'Custom Data'})`}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+            {Object.entries(lead.custom_fields).map(([key, val]) => {
+              const matchedCol = lead.business?.custom_columns?.find((c) => c.key === key);
+              const label = matchedCol?.label || key.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+              return (
+                <div key={key} className="bg-purple-50/50 border border-purple-100/80 rounded-xl p-3">
+                  <span className="text-[10px] uppercase font-bold text-purple-700 tracking-wider block mb-1">
+                    {label}
+                  </span>
+                  <span className="text-xs font-semibold text-zinc-800 break-words">
+                    {String(val) || '—'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
 
       {/* Tabs Navigation */}
       <div className="flex items-center gap-2 border-b border-zinc-200">

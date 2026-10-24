@@ -97,9 +97,28 @@ export interface FollowUp {
   user?: { id: number; name: string };
 }
 
+export interface CustomColumn {
+  key: string;
+  label: string;
+  type?: 'text' | 'number' | 'date' | 'select';
+}
+
+export interface Business {
+  id: number;
+  tenant_id: number;
+  name: string;
+  slug: string;
+  description?: string;
+  custom_columns?: CustomColumn[];
+  leads_count?: number;
+  created_at: string;
+}
+
 export interface Lead {
   id: number;
   tenant_id: number;
+  business_id?: number;
+  business?: Business;
   first_name: string;
   last_name?: string;
   phone: string;
@@ -113,6 +132,7 @@ export interface Lead {
   team_id?: number;
   estimated_value?: number;
   notes?: string;
+  custom_fields?: Record<string, any>;
   created_at: string;
   updated_at: string;
   owner?: { id: number; name: string; email: string; phone?: string };

@@ -16,6 +16,7 @@ import { RolePermissionsMatrix } from './features/access-control/RolePermissions
 import { ReportsView } from './features/reports/ReportsView';
 import { AuditTrailView } from './features/audit/AuditTrailView';
 import { SettingsView } from './features/settings/SettingsView';
+import { BusinessListView } from './features/businesses/BusinessListView';
 
 const RootRedirect: React.FC = () => {
   const { user, token, isLoading } = useAuth();
@@ -46,6 +47,7 @@ export const App: React.FC = () => {
           >
             <Route path="/dashboard" element={<DashboardView />} />
             <Route path="/telecaller" element={<TelecallerHome />} />
+            <Route path="/businesses" element={<BusinessListView />} />
             <Route path="/leads" element={<LeadListView />} />
             <Route path="/leads/:id" element={<LeadDetailView />} />
             <Route path="/calls" element={<CallHistoryView />} />

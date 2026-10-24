@@ -17,6 +17,7 @@ import {
   ArrowRight,
   Plus,
   FileSpreadsheet,
+  Briefcase,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -91,7 +92,16 @@ export const DashboardView: React.FC = () => {
 
       {/* KPI Cards Row */}
       {role === 'owner_admin' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div onClick={() => navigate('/businesses')} className="cursor-pointer">
+            <StatCard
+              title="Businesses"
+              value={summary.total_businesses ?? 0}
+              subtitle="Active verticals"
+              icon={<Briefcase className="w-4 h-4" />}
+              color="purple"
+            />
+          </div>
           <StatCard
             title="Total Leads"
             value={summary.total_leads ?? 0}
