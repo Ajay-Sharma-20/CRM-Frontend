@@ -152,37 +152,32 @@ export const AppLayout: React.FC = () => {
   const isTelecaller = user?.role?.slug === 'telecaller';
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  // 5 Controls for Telecaller Mobile Bottom Bar (Workspace in center, Reports last)
+  // 5 Controls for Telecaller Mobile Bottom Bar (Home, Leads, Follow-ups, Calls, Reports)
   const telecallerBottomNav = [
+    {
+      label: 'Home',
+      path: '/telecaller',
+      icon: <LayoutDashboard className="w-5 h-5" />,
+    },
     {
       label: 'Leads',
       path: '/leads',
       icon: <Users className="w-5 h-5" />,
-      isCenter: false,
     },
     {
       label: 'Follow-ups',
       path: '/follow-ups',
       icon: <CalendarCheck className="w-5 h-5" />,
-      isCenter: false,
-    },
-    {
-      label: 'Workspace',
-      path: '/telecaller',
-      icon: <PhoneCall className="w-5 h-5" />,
-      isCenter: true,
     },
     {
       label: 'Calls',
       path: '/calls',
-      icon: <History className="w-5 h-5" />,
-      isCenter: false,
+      icon: <PhoneCall className="w-5 h-5" />,
     },
     {
       label: 'Reports',
       path: '/reports',
       icon: <BarChart2 className="w-5 h-5" />,
-      isCenter: false,
     },
   ];
 
@@ -307,10 +302,10 @@ export const AppLayout: React.FC = () => {
               {notificationsOpen && (
                 <>
                   <div
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-40 bg-zinc-950/20 backdrop-blur-[1px]"
                     onClick={() => setNotificationsOpen(false)}
                   />
-                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-zinc-200/80 p-4 z-50">
+                  <div className="fixed inset-x-3 top-16 max-w-sm mx-auto sm:max-w-none sm:mx-0 sm:absolute sm:right-0 sm:top-auto sm:mt-2 sm:w-96 bg-white rounded-2xl shadow-2xl border border-zinc-200/80 p-4 z-50">
                     <div className="flex items-center justify-between pb-3 border-b border-zinc-100">
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold text-zinc-900 text-xs">Notifications</h4>
@@ -497,33 +492,6 @@ export const AppLayout: React.FC = () => {
             const isActive =
               location.pathname === item.path ||
               (item.path !== '/' && location.pathname.startsWith(item.path + '/'));
-
-            if (item.isCenter) {
-              return (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className="flex flex-col items-center relative -top-3 group focus:outline-none"
-                >
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 shadow-md ${
-                      isActive
-                        ? 'bg-brand-gradient text-white ring-4 ring-purple-100 shadow-purple-500/40 scale-105'
-                        : 'bg-zinc-900 text-white ring-4 ring-white shadow-zinc-400/30'
-                    }`}
-                  >
-                    {item.icon}
-                  </div>
-                  <span
-                    className={`text-[10px] font-bold mt-1 tracking-tight ${
-                      isActive ? 'text-purple-700' : 'text-zinc-600'
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-                </Link>
-              );
-            }
 
             return (
               <Link

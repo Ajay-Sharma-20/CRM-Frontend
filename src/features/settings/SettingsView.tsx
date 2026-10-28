@@ -6,13 +6,19 @@ import { Button } from '../../components/Button';
 import { Badge } from '../../components/Badge';
 import { Alert } from '../../components/Alert';
 import { LoadingSkeleton } from '../../components/EmptyState';
-import { Settings, Plus, X, Save } from 'lucide-react';
+import { Settings, Plus, X, Save, Megaphone, Send } from 'lucide-react';
 
 export const SettingsView: React.FC = () => {
   const { hasPermission } = useAuth();
   const [statuses, setStatuses] = useState<string[]>([]);
   const [outcomes, setOutcomes] = useState<string[]>([]);
   const [sources, setSources] = useState<string[]>([]);
+
+  // Announcement state
+  const [announcementMessage, setAnnouncementMessage] = useState('Ajay Ji Sudarshan Tehnologies welcomes you');
+  const [announcementBadge, setAnnouncementBadge] = useState('BROADCAST');
+  const [isBroadcasting, setIsBroadcasting] = useState(false);
+  const [broadcastSuccess, setBroadcastSuccess] = useState<string | null>(null);
 
   const [newStatus, setNewStatus] = useState('');
   const [newOutcome, setNewOutcome] = useState('');
@@ -31,6 +37,10 @@ export const SettingsView: React.FC = () => {
         setStatuses(res.data.lead_statuses || []);
         setOutcomes(res.data.call_outcomes || []);
         setSources(res.data.lead_sources || []);
+        if (res.data.announcement) {
+          setAnnouncementMessage(res.data.announcement.message || '');
+          setAnnouncementBadge(res.data.announcement.badge || 'BROADCAST');
+        }
       }
     } catch {
       // ignore
@@ -59,6 +69,28 @@ export const SettingsView: React.FC = () => {
       setError(err.message || 'Failed to save settings.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleBroadcastAnnouncement = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!announcementMessage.trim()) return;
+
+    setIsBroadcasting(true);
+    setBroadcastSuccess(null);
+    setError(null);
+
+    try {
+      await api.post('/settings/announcement', {
+        message: announcementMessage.trim(),
+        badge: announcementBadge.trim() || 'BROADCAST',
+      });
+      setBroadcastSuccess('Announcement broadcasted successfully! Telecallers will see this on their screen immediately.');
+      setTimeout(() => setBroadcastSuccess(null), 5000);
+    } catch (err: any) {
+      setError(err.message || 'Failed to broadcast announcement.');
+    } finally {
+      setIsBroadcasting(false);
     }
   };
 
@@ -126,6 +158,70 @@ export const SettingsView: React.FC = () => {
 
       {success && <Alert type="success">{success}</Alert>}
       {error && <Alert type="error">{error}</Alert>}
+      {broadcastSuccess && <Alert type="success">{broadcastSuccess}</Alert>}
+
+      {/* Admin Broadcast Announcement to Telecallers */}
+      <Card
+        title="📢 Telecaller Broadcast Announcement"
+        subtitle="Broadcast a real-time banner message directly onto every telecaller's mobile dashboard"
+      >
+        <form onSubmit={handleBroadcastAnnouncement} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="sm:col-span-1">
+              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                Badge / Tag
+              </label>
+              <input
+                type="text"
+                value={announcementBadge}
+                onChange={(e) => setAnnouncementBadge(e.target.value)}
+                placeholder="e.g. BROADCAST or URGENT"
+                className="w-full text-xs px-3 py-2 rounded-xl border border-zinc-200 outline-none focus:border-purple-600 font-mono tracking-wider"
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                Announcement Message
+              </label>
+              <input
+                type="text"
+                value={announcementMessage}
+                onChange={(e) => setAnnouncementMessage(e.target.value)}
+                placeholder="Enter announcement text for telecallers..."
+                className="w-full text-xs px-3 py-2 rounded-xl border border-zinc-200 outline-none focus:border-purple-600"
+              />
+            </div>
+          </div>
+
+          {/* Live Mobile Preview */}
+          <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-pink-600 rounded-2xl p-3.5 text-white shadow-sm border border-white/20">
+            <div className="text-[10px] uppercase font-bold text-white/80 mb-1.5 flex items-center justify-between">
+              <span>Mobile Telecaller Live Preview</span>
+              <span className="text-amber-300 font-mono text-[9px] font-bold">MATCHES DASHBOARD</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded text-[10px] font-black tracking-widest bg-amber-400 text-zinc-950 uppercase shadow-2xs">
+                {announcementBadge || 'BROADCAST'}
+              </span>
+              <span className="text-xs font-bold text-white truncate">
+                {announcementMessage || 'No message entered'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-1">
+            <Button
+              type="submit"
+              variant="gradient"
+              size="sm"
+              leftIcon={<Send className="w-3.5 h-3.5" />}
+              isLoading={isBroadcasting}
+            >
+              Broadcast to Telecallers
+            </Button>
+          </div>
+        </form>
+      </Card>
 
       {/* Allowed Lead Statuses */}
       <Card title="Allowed Lead Statuses" subtitle="Lifecycle stages for leads in your company pipeline">

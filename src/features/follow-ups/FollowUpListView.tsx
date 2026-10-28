@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { api } from '../../lib/api/client';
 import { FollowUp, Lead } from '../../types';
 import { Card } from '../../components/Card';
@@ -15,13 +16,22 @@ import {
   XCircle,
   PhoneCall,
   AlertTriangle,
+  Zap,
+  MessageSquare,
+  Sparkles,
+  ArrowRight,
+  User,
+  Building2,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 
 export const FollowUpListView: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Initial tab from query param ?view=priority or ?view=today
+  const initialView = (searchParams.get('view') as any) || 'open';
+  const [activeTab, setActiveTab] = useState<'priority' | 'open' | 'today' | 'overdue' | 'upcoming' | 'completed'>(initialView);
   const [followUps, setFollowUps] = useState<FollowUp[]>([]);
-  const [activeTab, setActiveTab] = useState<'open' | 'today' | 'overdue' | 'upcoming' | 'completed'>('open');
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals
@@ -80,31 +90,75 @@ export const FollowUpListView: React.FC = () => {
     }
   };
 
+  const handleWhatsApp = (fu: FollowUp) => {
+    if (!fu.lead) return;
+    let clean = (fu.lead.phone || '').replace(/[^0-9]/g, '');
+    if (clean.length === 10) clean = `91${clean}`;
+    window.open(`https://wa.me/${clean}`, '_blank');
+  };
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 max-w-4xl mx-auto pb-12">
+      {/* Page Header */}
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-zinc-900 tracking-tight">Follow-ups & Tasks</h1>
+        <h1 className="text-xl sm:text-2xl font-black text-zinc-900 tracking-tight">Follow-ups & Tasks</h1>
         <p className="text-xs text-zinc-500 mt-1">
           Manage scheduled follow-up calls, overdue tasks, and client re-engagements.
         </p>
       </div>
 
-      {/* Tabs */}
-      <div className="flex items-center gap-2 border-b border-zinc-200 overflow-x-auto pb-1">
+      {/* Full Width Mobile Strategic Reminder Div (10 AM - 12 PM Priority Window) */}
+      <div className="bg-gradient-to-r from-blue-700 via-indigo-700 to-purple-800 text-white rounded-2xl p-4 sm:p-5 shadow-lg relative overflow-hidden border border-white/10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-md">
+                10 AM — 12 PM CALLING WINDOW
+              </span>
+              <span className="text-xs text-blue-200 font-semibold flex items-center gap-1">
+                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                Peak Response Time
+              </span>
+            </div>
+            <h3 className="text-sm sm:text-base font-bold text-white">
+              Priority Callback Queue
+            </h3>
+            <p className="text-xs text-blue-100 leading-relaxed max-w-xl">
+              High-priority leads respond best between <strong>10 AM — 12 PM</strong>. Engage these prospects before noon to maximize conversion rate.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('priority')}
+            className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all shrink-0 active:scale-[0.98] ${
+              activeTab === 'priority'
+                ? 'bg-emerald-400 text-slate-900 shadow-md ring-2 ring-emerald-300'
+                : 'bg-white text-blue-900 hover:bg-blue-50 shadow-sm'
+            }`}
+          >
+            {activeTab === 'priority' ? '✓ Showing Priority Leads' : 'Filter Priority Leads'}
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Tabs (Horizontal scroll-free touch pills) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
         {[
+          { key: 'priority', label: '🔥 Priority (10-12 PM)' },
           { key: 'open', label: 'All Open' },
           { key: 'today', label: 'Due Today' },
-          { key: 'overdue', label: 'Overdue Alerts' },
+          { key: 'overdue', label: 'Overdue' },
           { key: 'upcoming', label: 'Upcoming' },
-          { key: 'completed', label: 'Completed History' },
+          { key: 'completed', label: 'Completed' },
         ].map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as any)}
-            className={`px-4 py-2 text-xs font-semibold rounded-lg transition-all ${
+            className={`px-3.5 py-2 text-xs font-bold rounded-xl shrink-0 transition-all ${
               activeTab === tab.key
-                ? 'bg-purple-100 text-purple-900 shadow-sm'
-                : 'text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100'
+                ? 'bg-purple-600 text-white shadow-sm'
+                : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 hover:text-zinc-900'
             }`}
           >
             {tab.label}
@@ -112,122 +166,161 @@ export const FollowUpListView: React.FC = () => {
         ))}
       </div>
 
-      {/* Follow-ups List */}
-      <Card className="overflow-hidden p-0">
+      {/* Follow-ups List (Mobile-first cards, ZERO horizontal scrolling) */}
+      <div className="space-y-3">
         {isLoading ? (
-          <div className="p-6">
-            <LoadingSkeleton rows={5} />
-          </div>
+          <Card className="p-6">
+            <LoadingSkeleton rows={4} />
+          </Card>
         ) : followUps.length === 0 ? (
-          <EmptyState
-            title="No follow-ups in this view"
-            description="All scheduled follow-up tasks for this category have been attended to."
-          />
+          <Card className="p-6">
+            <EmptyState
+              title="No follow-up tasks in this view"
+              description="All scheduled follow-up tasks for this category have been attended to."
+              actionLabel={activeTab !== 'open' ? 'View All Open' : undefined}
+              onAction={activeTab !== 'open' ? () => setActiveTab('open') : undefined}
+            />
+          </Card>
         ) : (
-          <div className="divide-y divide-zinc-100">
-            {followUps.map((fu) => {
-              const isOverdue = fu.status === 'open' && new Date(fu.due_at) < new Date();
-              return (
-                <div
-                  key={fu.id}
-                  className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-50/70 transition-colors ${
-                    isOverdue ? 'bg-amber-50/30' : ''
-                  }`}
-                >
-                  <div className="flex items-start gap-3.5">
+          followUps.map((fu) => {
+            const isOverdue = fu.status === 'open' && new Date(fu.due_at) < new Date();
+            const cleanPhone = (fu.lead?.phone || '').replace(/[^0-9]/g, '');
+
+            return (
+              <div
+                key={fu.id}
+                className={`bg-[#FBFAF9] rounded-2xl border p-4 shadow-2xs hover:shadow-xs transition-all flex flex-col gap-3 ${
+                  isOverdue
+                    ? 'border-amber-300 bg-amber-50/30'
+                    : 'border-[#E9E6E2] hover:border-purple-300'
+                }`}
+              >
+                {/* Header row: Status & Due Time */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
                     <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                         isOverdue
                           ? 'bg-amber-100 text-amber-700'
                           : fu.status === 'completed'
                           ? 'bg-emerald-100 text-emerald-700'
-                          : 'bg-purple-50 text-purple-600'
+                          : 'bg-purple-100 text-purple-700'
                       }`}
                     >
                       <CalendarCheck className="w-4 h-4" />
                     </div>
-
                     <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-xs sm:text-sm text-zinc-900">{fu.title}</span>
-                        {isOverdue && <Badge variant="warning" size="sm">Overdue</Badge>}
-                        <StatusBadge status={fu.status} size="sm" />
-                      </div>
-
-                      {fu.lead && (
-                        <div className="text-xs text-zinc-600 mt-0.5">
-                          Lead:{' '}
-                          <button
-                            onClick={() => navigate(`/leads/${fu.lead?.id}`)}
-                            className="font-semibold text-purple-700 hover:underline"
-                          >
-                            {fu.lead.first_name} {fu.lead.last_name} ({fu.lead.phone})
-                          </button>
-                        </div>
-                      )}
-
-                      <div className="text-xs text-zinc-500 mt-1 flex items-center gap-2 flex-wrap">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-zinc-400" />
-                          Due: {new Date(fu.due_at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}
+                      <h4 className="text-xs sm:text-sm font-bold text-zinc-900 leading-snug">
+                        {fu.title}
+                      </h4>
+                      <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 mt-0.5">
+                        <Clock className="w-3 h-3 text-zinc-400" />
+                        <span>
+                          {new Date(fu.due_at).toLocaleString([], {
+                            dateStyle: 'medium',
+                            timeStyle: 'short',
+                          })}
                         </span>
-                        {fu.user && <span>• Assigned: {fu.user.name}</span>}
                       </div>
-
-                      {fu.notes && (
-                        <p className="text-[11px] text-zinc-500 mt-1 italic">
-                          "{fu.notes}"
-                        </p>
-                      )}
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-2 self-end sm:self-center">
-                    {fu.status === 'open' && (
+                  {/* Status pill */}
+                  <div className="flex items-center gap-1">
+                    {isOverdue && (
+                      <span className="text-[10px] font-bold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                        Overdue
+                      </span>
+                    )}
+                    <StatusBadge status={fu.status} size="sm" />
+                  </div>
+                </div>
+
+                {/* Lead Contact Info Block */}
+                {fu.lead && (
+                  <div className="bg-zinc-50 rounded-xl p-2.5 border border-zinc-100 flex items-center justify-between text-xs">
+                    <div className="min-w-0">
+                      <div className="font-bold text-zinc-900 truncate">
+                        {fu.lead.first_name} {fu.lead.last_name || ''}
+                      </div>
+                      <div className="text-zinc-500 font-mono text-[11px] mt-0.5">
+                        📞 {fu.lead.phone}
+                      </div>
+                    </div>
+                    {fu.lead.status && (
+                      <span className="text-[10px] font-semibold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">
+                        {fu.lead.status}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Notes if available */}
+                {fu.notes && (
+                  <p className="text-xs text-zinc-600 bg-zinc-50/60 p-2.5 rounded-xl border border-zinc-100 italic">
+                    "{fu.notes}"
+                  </p>
+                )}
+
+                {/* Action Buttons: Call, WhatsApp, Complete, Cancel */}
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-zinc-100 flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    {fu.lead && (
                       <>
-                        {fu.lead && (
-                          <Button
-                            variant="gradient"
-                            size="sm"
-                            leftIcon={<PhoneCall className="w-3.5 h-3.5" />}
-                            onClick={() => handleInitiateCall(fu)}
-                          >
-                            Call
-                          </Button>
-                        )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          leftIcon={<CheckCircle className="w-3.5 h-3.5 text-emerald-600" />}
-                          onClick={() => setCompletingItem(fu)}
+                        <button
+                          type="button"
+                          onClick={() => handleInitiateCall(fu)}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold shadow-sm transition-colors"
                         >
-                          Complete
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setCancellingItem(fu)}
+                          <PhoneCall className="w-3.5 h-3.5" />
+                          <span>Call</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleWhatsApp(fu)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-semibold transition-colors"
                         >
-                          Cancel
-                        </Button>
+                          <MessageSquare className="w-3.5 h-3.5" />
+                          <span>WhatsApp</span>
+                        </button>
                       </>
                     )}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </Card>
 
-      {/* Complete Modal */}
+                  {fu.status === 'open' && (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCompletingItem(fu)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-sm transition-colors"
+                      >
+                        <CheckCircle className="w-3.5 h-3.5" />
+                        <span>Complete</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCancellingItem(fu)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-zinc-500 hover:text-rose-600 hover:bg-rose-50 text-xs font-medium transition-colors"
+                      >
+                        <XCircle className="w-3.5 h-3.5" />
+                        <span>Cancel</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Complete Follow-up Modal */}
       {completingItem && (
         <Modal
           isOpen={!!completingItem}
           onClose={() => setCompletingItem(null)}
-          title="Complete Follow-up"
-          description={`Mark '${completingItem.title}' as completed`}
+          title="Complete Follow-up Task"
+          description={`Mark follow-up for ${completingItem.lead?.first_name || 'lead'} as finished.`}
           footer={
             <>
               <Button variant="ghost" onClick={() => setCompletingItem(null)}>
@@ -240,32 +333,34 @@ export const FollowUpListView: React.FC = () => {
           }
         >
           <div className="space-y-3">
-            <label className="block text-xs font-medium text-zinc-700">Completion Notes (Optional)</label>
+            <label className="block text-xs font-medium text-zinc-700">
+              Outcome / Completion Notes
+            </label>
             <textarea
               value={completeNotes}
               onChange={(e) => setCompleteNotes(e.target.value)}
-              placeholder="What was the result of this follow-up?"
+              placeholder="e.g. Spoke with client, scheduled property visit for Saturday..."
               rows={3}
-              className="w-full text-xs rounded-lg border border-zinc-300 p-2.5 focus:border-purple-600 outline-none"
+              className="w-full text-xs rounded-xl border border-zinc-200 p-2.5 focus:border-purple-600 focus:ring-1 focus:ring-purple-600 outline-none"
             />
           </div>
         </Modal>
       )}
 
-      {/* Cancel Modal */}
+      {/* Cancel Follow-up Modal */}
       {cancellingItem && (
         <Modal
           isOpen={!!cancellingItem}
           onClose={() => setCancellingItem(null)}
           title="Cancel Follow-up"
-          description={`Please provide a reason for cancelling this follow-up`}
+          description="Please specify why this scheduled callback is being cancelled."
           footer={
             <>
               <Button variant="ghost" onClick={() => setCancellingItem(null)}>
                 Close
               </Button>
               <Button variant="danger" onClick={handleCancel}>
-                Cancel Follow-up
+                Confirm Cancellation
               </Button>
             </>
           }
@@ -273,16 +368,16 @@ export const FollowUpListView: React.FC = () => {
           <div className="space-y-3">
             <Input
               label="Cancellation Reason *"
-              required
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
-              placeholder="e.g. Lead requested no more calls, duplicate task..."
+              placeholder="e.g. Client already purchased / Lead requested do-not-call"
+              required
             />
           </div>
         </Modal>
       )}
 
-      {/* Outcome Modal if call initiated */}
+      {/* Call Outcome Logging Modal */}
       {callingLead && (
         <CallOutcomeModal
           isOpen={!!callingLead}

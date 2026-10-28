@@ -11,6 +11,8 @@ import { LeadCreateModal } from './LeadCreateModal';
 import { LeadAssignModal } from './LeadAssignModal';
 import { LeadBulkAssignModal } from './LeadBulkAssignModal';
 import { CsvImportModal } from './CsvImportModal';
+import { LeadCard } from './LeadCard';
+import { LeadUpdateModal } from './LeadUpdateModal';
 import { BusinessCreateModal } from '../businesses/BusinessCreateModal';
 import { CallOutcomeModal } from '../calls/CallOutcomeModal';
 import {
@@ -27,12 +29,19 @@ import {
   Building2,
   Users,
   Sparkles,
+  LayoutGrid,
+  Table as TableIcon,
 } from 'lucide-react';
 
 export const LeadListView: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission } = useAuth();
+  const isTelecaller = user?.role?.slug === 'telecaller';
+
+  // Category filter state synced with URL searchParams (fresh, calls_today, interested, converted, priority, all)
+  const initialCategory = searchParams.get('category') || 'all';
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [businesses, setBusinesses] = useState<Business[]>([]);
@@ -54,6 +63,9 @@ export const LeadListView: React.FC = () => {
   const [isCreateBusinessOpen, setIsCreateBusinessOpen] = useState(false);
   const [assigningLead, setAssigningLead] = useState<Lead | null>(null);
   const [callingLead, setCallingLead] = useState<Lead | null>(null);
+  const [updatingLead, setUpdatingLead] = useState<Lead | null>(null);
+  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   const fetchBusinesses = async () => {
     try {
@@ -66,10 +78,10 @@ export const LeadListView: React.FC = () => {
     }
   };
 
-  const fetchLeads = async (page = 1) => {
+  const fetchLeads = async (page = 1, categoryToFetch = selectedCategory) => {
     setIsLoading(true);
     try {
-      const res = await api.get('/leads', {
+      const params: Record<string, any> = {
         page,
         search,
         status,
@@ -77,7 +89,11 @@ export const LeadListView: React.FC = () => {
         owner_id: ownerId,
         business_id: selectedBusinessId || undefined,
         per_page: 15,
-      });
+      };
+      if (categoryToFetch && categoryToFetch !== 'all') {
+        params.category = categoryToFetch;
+      }
+      const res = await api.get('/leads', params);
       if (res.success) {
         setLeads(res.data);
         setMeta(res.meta);
@@ -89,18 +105,35 @@ export const LeadListView: React.FC = () => {
     }
   };
 
+  // Sync category state when URL changes
+  useEffect(() => {
+    const cat = searchParams.get('category') || 'all';
+    setSelectedCategory(cat);
+  }, [searchParams]);
+
   useEffect(() => {
     fetchBusinesses();
     api.get('/users').then((res) => res.success && setUsers(res.data)).catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetchLeads(1);
-  }, [status, source, ownerId, selectedBusinessId]);
+    fetchLeads(1, selectedCategory);
+  }, [status, source, ownerId, selectedBusinessId, selectedCategory]);
+
+  const handleCategoryChange = (newCat: string) => {
+    setSelectedCategory(newCat);
+    const newParams = new URLSearchParams(searchParams);
+    if (newCat === 'all') {
+      newParams.delete('category');
+    } else {
+      newParams.set('category', newCat);
+    }
+    setSearchParams(newParams);
+  };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    fetchLeads(1);
+    fetchLeads(1, selectedCategory);
   };
 
   const handleExportCsv = async () => {
@@ -121,6 +154,21 @@ export const LeadListView: React.FC = () => {
   const handleInitiateCall = (lead: Lead) => {
     window.location.href = `tel:${lead.phone}`;
     setCallingLead(lead);
+  };
+
+  const handleWhatsApp = (lead: Lead) => {
+    let clean = (lead.phone || '').replace(/[^0-9]/g, '');
+    if (clean.length === 10) clean = `91${clean}`;
+    window.open(`https://wa.me/${clean}`, '_blank');
+  };
+
+  const handleOpenUpdate = (lead: Lead) => {
+    setUpdatingLead(lead);
+    setIsUpdateModalOpen(true);
+  };
+
+  const handleLeadUpdated = (updatedLead: Lead) => {
+    setLeads((prev) => prev.map((l) => (l.id === updatedLead.id ? updatedLead : l)));
   };
 
   const selectedBusiness = businesses.find((b) => String(b.id) === selectedBusinessId);
@@ -144,7 +192,37 @@ export const LeadListView: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {hasPermission('leads.export') && (
+          {/* View Mode Toggle */}
+          <div className="flex items-center rounded-xl border border-zinc-200 bg-zinc-100 p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                viewMode === 'cards'
+                  ? 'bg-white text-purple-700 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900'
+              }`}
+              title="Cards View"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                viewMode === 'table'
+                  ? 'bg-white text-purple-700 shadow-sm'
+                  : 'text-zinc-500 hover:text-zinc-900'
+              }`}
+              title="Table View"
+            >
+              <TableIcon className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Table</span>
+            </button>
+          </div>
+
+          {!isTelecaller && hasPermission('leads.export') && (
             <Button
               variant="outline"
               size="sm"
@@ -155,7 +233,7 @@ export const LeadListView: React.FC = () => {
             </Button>
           )}
 
-          {hasPermission('leads.assign') && (
+          {!isTelecaller && hasPermission('leads.assign') && (
             <Button
               variant="outline"
               size="sm"
@@ -166,7 +244,7 @@ export const LeadListView: React.FC = () => {
             </Button>
           )}
 
-          {hasPermission('leads.import') && (
+          {!isTelecaller && hasPermission('leads.import') && (
             <Button
               variant="outline"
               size="sm"
@@ -177,7 +255,7 @@ export const LeadListView: React.FC = () => {
             </Button>
           )}
 
-          {hasPermission('leads.create') && (
+          {!isTelecaller && hasPermission('leads.create') && (
             <Button
               variant="gradient"
               size="sm"
@@ -189,6 +267,53 @@ export const LeadListView: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Category Filter Pills (Sync with Telecaller Home categories) */}
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+        {[
+          { id: 'all', label: 'All Leads' },
+          { id: 'fresh', label: 'Fresh' },
+          { id: 'calls_today', label: 'Calls Today' },
+          { id: 'interested', label: 'Interested' },
+          { id: 'converted', label: 'Converted' },
+          { id: 'priority', label: 'Priority (10-12 PM)' },
+        ].map((cat) => {
+          const isActive = selectedCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              type="button"
+              onClick={() => handleCategoryChange(cat.id)}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold shrink-0 transition-all ${
+                isActive
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-[#FBFAF9] text-zinc-600 hover:bg-stone-100 border border-[#E9E6E2]'
+              }`}
+            >
+              {cat.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Active Category Filter Banner */}
+      {selectedCategory !== 'all' && (
+        <div className="bg-purple-50/80 border border-purple-200/80 rounded-xl px-4 py-2 flex items-center justify-between text-xs text-purple-950">
+          <div className="flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-purple-600 animate-pulse" />
+            <span>
+              Showing category: <strong className="capitalize">{selectedCategory.replace('_', ' ')}</strong> ({meta.total} records found)
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => handleCategoryChange('all')}
+            className="text-[11px] text-purple-700 hover:text-purple-950 font-bold underline cursor-pointer"
+          >
+            Show All Leads
+          </button>
+        </div>
+      )}
 
       {/* Filter & Search Bar */}
       <Card className="p-3">
@@ -303,20 +428,62 @@ export const LeadListView: React.FC = () => {
         </div>
       )}
 
-      {/* Leads Table */}
-      <Card className="overflow-hidden p-0">
-        {isLoading ? (
-          <div className="p-6">
-            <LoadingSkeleton rows={6} />
-          </div>
-        ) : leads.length === 0 ? (
+      {/* Leads Content: Cards or Table */}
+      {isLoading ? (
+        <Card className="p-6">
+          <LoadingSkeleton rows={6} />
+        </Card>
+      ) : leads.length === 0 ? (
+        <Card className="p-6">
           <EmptyState
             title="No leads found"
             description="Try adjusting your search criteria or import a CSV for this business."
             actionLabel={hasPermission('leads.import') ? 'Import Leads' : undefined}
             onAction={hasPermission('leads.import') ? () => setIsImportModalOpen(true) : undefined}
           />
-        ) : (
+        </Card>
+      ) : viewMode === 'cards' ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3.5">
+            {leads.map((lead) => (
+              <LeadCard
+                key={lead.id}
+                lead={lead}
+                onCall={handleInitiateCall}
+                onWhatsApp={handleWhatsApp}
+                onUpdate={handleOpenUpdate}
+                onViewDetails={(l) => navigate(`/leads/${l.id}`)}
+              />
+            ))}
+          </div>
+
+          {meta.last_page > 1 && (
+            <Card className="p-3 flex items-center justify-between text-xs text-zinc-500">
+              <span>Showing {leads.length} of {meta.total} records</span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={meta.current_page <= 1}
+                  onClick={() => fetchLeads(meta.current_page - 1)}
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </Button>
+                <span className="px-2 font-medium">Page {meta.current_page} of {meta.last_page}</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={meta.current_page >= meta.last_page}
+                  onClick={() => fetchLeads(meta.current_page + 1)}
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </Card>
+          )}
+        </div>
+      ) : (
+        <Card className="overflow-hidden p-0">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-100 text-zinc-500 uppercase tracking-wider font-semibold">
@@ -415,7 +582,6 @@ export const LeadListView: React.FC = () => {
               </tbody>
             </table>
           </div>
-        )}
 
         {/* Pagination Bar */}
         {meta.last_page > 1 && (
@@ -447,6 +613,7 @@ export const LeadListView: React.FC = () => {
           </div>
         )}
       </Card>
+      )}
 
       {/* Modals */}
       <LeadCreateModal
@@ -507,6 +674,16 @@ export const LeadListView: React.FC = () => {
           }}
         />
       )}
+
+      <LeadUpdateModal
+        isOpen={isUpdateModalOpen}
+        onClose={() => {
+          setIsUpdateModalOpen(false);
+          setUpdatingLead(null);
+        }}
+        lead={updatingLead}
+        onSuccess={handleLeadUpdated}
+      />
     </div>
   );
 };
