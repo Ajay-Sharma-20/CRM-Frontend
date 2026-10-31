@@ -35,6 +35,7 @@ export interface User {
   teams?: Team[];
   effective_permissions?: string[];
   leads_count?: number;
+  due_leads_count?: number;
   calls_count?: number;
 }
 

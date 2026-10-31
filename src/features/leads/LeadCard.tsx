@@ -18,6 +18,9 @@ interface LeadCardProps {
   onWhatsApp: (lead: Lead) => void;
   onUpdate: (lead: Lead) => void;
   onViewDetails?: (lead: Lead) => void;
+  selectable?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (leadId: number) => void;
 }
 
 // Format relative time (e.g., '4 MONTHS AGO', '2 HOURS AGO', 'TODAY')
@@ -88,6 +91,9 @@ export const LeadCard: React.FC<LeadCardProps> = ({
   onWhatsApp,
   onUpdate,
   onViewDetails,
+  selectable = false,
+  isSelected = false,
+  onToggleSelect,
 }) => {
   const cleanPhone = cleanPhoneNumber(lead.phone);
   const fullName = `${lead.first_name || ''} ${lead.last_name || ''}`.trim() || 'Unnamed Lead';
@@ -187,13 +193,37 @@ export const LeadCard: React.FC<LeadCardProps> = ({
   }
 
   return (
-    <div className="bg-[#FBFAF9] text-zinc-900 border border-[#E9E6E2] rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:border-purple-300 hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-3 relative overflow-hidden group">
+    <div
+      className={`bg-[#FBFAF9] text-zinc-900 border rounded-2xl p-4 shadow-[0_2px_12px_rgba(0,0,0,0.03)] hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-3 relative overflow-hidden group ${
+        isSelected
+          ? 'border-purple-500 bg-purple-50/40 ring-1 ring-purple-400'
+          : 'border-[#E9E6E2] hover:border-purple-300'
+      }`}
+    >
       {/* Subtle purple gradient background highlight */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl pointer-events-none" />
 
-      {/* Top Row: User Avatar, Name, Company/City & Status Pill */}
+      {/* Top Row: Selection Radio Button, User Avatar, Name, Company/City & Status Pill */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-start gap-3 min-w-0">
+          {selectable && onToggleSelect && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleSelect(lead.id);
+              }}
+              title={isSelected ? 'Deselect lead' : 'Select lead'}
+              className={`w-5 h-5 mt-2 rounded-full border-2 flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                isSelected
+                  ? 'border-purple-600 bg-purple-600 ring-2 ring-purple-200'
+                  : 'border-zinc-300 hover:border-purple-500 bg-white'
+              }`}
+            >
+              {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+            </button>
+          )}
+
           {/* Avatar Icon */}
           <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-700 shrink-0 shadow-xs">
             <User className="w-5 h-5" />
@@ -246,25 +276,6 @@ export const LeadCard: React.FC<LeadCardProps> = ({
           <Clock className="w-3 h-3 text-zinc-400" />
           <span>{formatRelativeTime(lead.created_at)}</span>
         </div>
-      </div>
-
-      {/* Quick Direct Strip: Phone Link | WhatsApp Link */}
-      <div className="bg-white border border-[#E9E6E2] rounded-xl px-3 py-2 flex items-center justify-between text-xs shadow-2xs">
-        <a
-          href={`tel:${lead.phone}`}
-          className="text-purple-700 hover:text-purple-900 font-mono text-[11px] font-bold flex items-center gap-1 truncate"
-        >
-          📞 +{cleanPhone}
-        </a>
-        <span className="text-stone-300 px-1">|</span>
-        <a
-          href={`https://wa.me/${cleanPhone}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-emerald-700 hover:text-emerald-900 font-mono text-[11px] font-bold flex items-center gap-1 truncate"
-        >
-          💬 wa.me/{cleanPhone}
-        </a>
       </div>
 
       {/* Dynamic Business Attributes & Link Buttons */}

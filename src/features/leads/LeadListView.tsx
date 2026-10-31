@@ -10,6 +10,7 @@ import { EmptyState, LoadingSkeleton } from '../../components/EmptyState';
 import { LeadCreateModal } from './LeadCreateModal';
 import { LeadAssignModal } from './LeadAssignModal';
 import { LeadBulkAssignModal } from './LeadBulkAssignModal';
+import { AssignSelectedLeadsModal } from './AssignSelectedLeadsModal';
 import { CsvImportModal } from './CsvImportModal';
 import { LeadCard } from './LeadCard';
 import { LeadUpdateModal } from './LeadUpdateModal';
@@ -38,6 +39,11 @@ export const LeadListView: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user, hasPermission } = useAuth();
   const isTelecaller = user?.role?.slug === 'telecaller';
+  const canAssign = !isTelecaller && (hasPermission('leads.assign') || user?.role?.slug === 'admin' || user?.role?.slug === 'owner');
+
+  // Selected leads state for admin radio/checkbox selection
+  const [selectedLeadIds, setSelectedLeadIds] = useState<number[]>([]);
+  const [isAssignSelectedOpen, setIsAssignSelectedOpen] = useState(false);
 
   // Category filter state synced with URL searchParams (fresh, calls_today, interested, converted, priority, all)
   const initialCategory = searchParams.get('category') || 'all';
@@ -129,6 +135,25 @@ export const LeadListView: React.FC = () => {
       newParams.set('category', newCat);
     }
     setSearchParams(newParams);
+  };
+
+  const isAllSelected = leads.length > 0 && leads.every((l) => selectedLeadIds.includes(l.id));
+  const isIndeterminate = leads.some((l) => selectedLeadIds.includes(l.id)) && !isAllSelected;
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      const pageIds = leads.map((l) => l.id);
+      setSelectedLeadIds((prev) => prev.filter((id) => !pageIds.includes(id)));
+    } else {
+      const pageIds = leads.map((l) => l.id);
+      setSelectedLeadIds((prev) => Array.from(new Set([...prev, ...pageIds])));
+    }
+  };
+
+  const handleToggleSelectLead = (leadId: number) => {
+    setSelectedLeadIds((prev) =>
+      prev.includes(leadId) ? prev.filter((id) => id !== leadId) : [...prev, leadId]
+    );
   };
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -233,12 +258,24 @@ export const LeadListView: React.FC = () => {
             </Button>
           )}
 
-          {!isTelecaller && hasPermission('leads.assign') && (
+          {canAssign && selectedLeadIds.length > 0 && (
+            <Button
+              variant="gradient"
+              size="sm"
+              leftIcon={<UserCheck className="w-3.5 h-3.5" />}
+              onClick={() => setIsAssignSelectedOpen(true)}
+            >
+              Assign Selected ({selectedLeadIds.length})
+            </Button>
+          )}
+
+          {canAssign && (
             <Button
               variant="outline"
               size="sm"
               leftIcon={<Users className="w-3.5 h-3.5 text-purple-600" />}
               onClick={() => setIsBulkAssignOpen(true)}
+              title="Bulk assign by index range or batch count"
             >
               Bulk Assign
             </Button>
@@ -453,6 +490,9 @@ export const LeadListView: React.FC = () => {
                 onWhatsApp={handleWhatsApp}
                 onUpdate={handleOpenUpdate}
                 onViewDetails={(l) => navigate(`/leads/${l.id}`)}
+                selectable={canAssign}
+                isSelected={selectedLeadIds.includes(lead.id)}
+                onToggleSelect={handleToggleSelectLead}
               />
             ))}
           </div>
@@ -488,6 +528,25 @@ export const LeadListView: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="bg-zinc-50 border-b border-zinc-100 text-zinc-500 uppercase tracking-wider font-semibold">
                 <tr>
+                  {canAssign && (
+                    <th className="py-3 px-3 w-12 text-center">
+                      <button
+                        type="button"
+                        onClick={handleToggleSelectAll}
+                        title={isAllSelected ? 'Deselect All on Page' : 'Select All on Page'}
+                        className={`w-[22px] h-[22px] rounded-full border-2 mx-auto flex items-center justify-center transition-all cursor-pointer ${
+                          isAllSelected
+                            ? 'border-purple-600 bg-purple-600 ring-2 ring-purple-200'
+                            : isIndeterminate
+                            ? 'border-purple-600 bg-purple-100'
+                            : 'border-zinc-300 hover:border-purple-500 bg-white shadow-2xs'
+                        }`}
+                      >
+                        {isAllSelected && <div className="w-2.5 h-2.5 rounded-full bg-white shadow-xs" />}
+                        {isIndeterminate && <div className="w-2.5 h-2.5 rounded-full bg-purple-600" />}
+                      </button>
+                    </th>
+                  )}
                   <th className="py-3 px-4">Contact</th>
                   <th className="py-3 px-4">Phone / Email</th>
                   <th className="py-3 px-4">Status</th>
@@ -505,8 +564,31 @@ export const LeadListView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 text-zinc-700">
-                {leads.map((lead) => (
-                  <tr key={lead.id} className="hover:bg-zinc-50/70 transition-colors">
+                {leads.map((lead) => {
+                  const isSelected = selectedLeadIds.includes(lead.id);
+                  return (
+                  <tr
+                    key={lead.id}
+                    className={`transition-colors ${
+                      isSelected ? 'bg-purple-50/60 hover:bg-purple-50/80' : 'hover:bg-zinc-50/70'
+                    }`}
+                  >
+                    {canAssign && (
+                      <td className="py-3.5 px-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleSelectLead(lead.id)}
+                          title={isSelected ? 'Deselect lead' : 'Select lead with radio button to assign'}
+                          className={`w-[22px] h-[22px] rounded-full border-2 mx-auto flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'border-purple-600 bg-purple-600 ring-2 ring-purple-200'
+                              : 'border-zinc-300 hover:border-purple-500 bg-white shadow-2xs'
+                          }`}
+                        >
+                          {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-white shadow-xs" />}
+                        </button>
+                      </td>
+                    )}
                     <td className="py-3.5 px-4">
                       <div className="font-semibold text-zinc-900">
                         {lead.first_name} {lead.last_name || ''}
@@ -578,7 +660,8 @@ export const LeadListView: React.FC = () => {
                       </div>
                     </td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>
@@ -683,6 +766,47 @@ export const LeadListView: React.FC = () => {
         }}
         lead={updatingLead}
         onSuccess={handleLeadUpdated}
+      />
+
+      {/* Floating Action Bar for Selected Leads Assignment */}
+      {canAssign && selectedLeadIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-40 bg-zinc-900/95 backdrop-blur-md text-white px-5 py-3 rounded-2xl shadow-2xl border border-zinc-700/80 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-5 duration-200">
+          <div className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-pulse" />
+            <span className="text-xs sm:text-sm font-semibold">
+              <strong className="text-purple-300">{selectedLeadIds.length}</strong> lead{selectedLeadIds.length === 1 ? '' : 's'} selected
+            </span>
+          </div>
+          <div className="h-4 w-px bg-zinc-700" />
+          <button
+            type="button"
+            onClick={() => setSelectedLeadIds([])}
+            className="text-xs text-zinc-400 hover:text-white underline cursor-pointer"
+          >
+            Clear Selection
+          </button>
+          <Button
+            variant="gradient"
+            size="sm"
+            leftIcon={<UserCheck className="w-4 h-4" />}
+            onClick={() => setIsAssignSelectedOpen(true)}
+            className="font-bold shadow-md shadow-purple-900/40"
+          >
+            Assign Selected to Telecaller
+          </Button>
+        </div>
+      )}
+
+      {/* Assign Selected Leads Modal */}
+      <AssignSelectedLeadsModal
+        isOpen={isAssignSelectedOpen}
+        onClose={() => setIsAssignSelectedOpen(false)}
+        selectedLeadIds={selectedLeadIds}
+        leads={leads}
+        onSuccess={() => {
+          setSelectedLeadIds([]);
+          fetchLeads(meta.current_page);
+        }}
       />
     </div>
   );

@@ -86,11 +86,29 @@ export const LeadAssignModal: React.FC<LeadAssignModalProps> = ({
           value={ownerId}
           onChange={(e) => setOwnerId(e.target.value)}
           placeholder="Unassigned"
-          options={users.map((u) => ({
-            label: `${u.name} (${u.role?.name})`,
-            value: u.id,
-          }))}
+          options={users.map((u) => {
+            const due = u.due_leads_count ?? u.leads_count ?? 0;
+            return {
+              label: `${u.name} (${u.role?.name || 'Agent'}) — ${due} Due Leads`,
+              value: u.id,
+            };
+          })}
         />
+
+        {ownerId && (
+          (() => {
+            const selectedU = users.find((u) => String(u.id) === String(ownerId));
+            if (!selectedU) return null;
+            const due = selectedU.due_leads_count ?? selectedU.leads_count ?? 0;
+            const total = selectedU.leads_count ?? 0;
+            return (
+              <div className="text-xs bg-purple-50 text-purple-900 border border-purple-200/80 rounded-xl px-3 py-2 flex items-center justify-between">
+                <span>Workload: <strong>{due} due leads</strong></span>
+                <span className="text-zinc-500 text-[11px]">Total assigned: {total}</span>
+              </div>
+            );
+          })()
+        )}
 
         <Select
           label="Assign to Team"

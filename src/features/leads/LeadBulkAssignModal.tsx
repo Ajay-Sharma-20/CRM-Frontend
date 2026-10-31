@@ -328,12 +328,21 @@ export const LeadBulkAssignModal: React.FC<LeadBulkAssignModalProps> = ({
             value={selectedTelecallerId}
             onChange={(e) => setSelectedTelecallerId(e.target.value)}
             placeholder="Select Telecaller"
-            options={telecallers.map((t) => ({
-              label: `${t.name} (${t.role?.name || 'Agent'})`,
-              value: String(t.id),
-            }))}
+            options={telecallers.map((t) => {
+              const due = t.due_leads_count ?? t.leads_count ?? 0;
+              return {
+                label: `${t.name} (${t.role?.name || 'Agent'}) — ${due} Due Leads`,
+                value: String(t.id),
+              };
+            })}
             required
           />
+          {selectedCaller && (
+            <div className="mt-2 text-xs bg-purple-50 text-purple-900 border border-purple-200/80 rounded-xl px-3 py-2 flex items-center justify-between">
+              <span>Current Workload: <strong>{selectedCaller.due_leads_count ?? selectedCaller.leads_count ?? 0} due leads</strong></span>
+              <span className="text-zinc-500 text-[11px]">Total assigned: {selectedCaller.leads_count ?? 0}</span>
+            </div>
+          )}
         </div>
 
         {/* Batch Note */}
@@ -353,10 +362,15 @@ export const LeadBulkAssignModal: React.FC<LeadBulkAssignModalProps> = ({
         {/* Summary Preview Banner */}
         <div className="bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200/70 p-3.5 rounded-xl flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <UserCheck className="w-5 h-5 text-purple-600" />
+            <UserCheck className="w-5 h-5 text-purple-600 shrink-0" />
             <div>
               <div className="text-xs font-bold text-zinc-900">
                 Assigning {targetCount} leads to {selectedCaller ? selectedCaller.name : 'Selected Agent'}
+                {selectedCaller && (
+                  <span className="ml-2 text-purple-700 font-normal">
+                    (Currently has <strong>{selectedCaller.due_leads_count ?? selectedCaller.leads_count ?? 0}</strong> due leads)
+                  </span>
+                )}
               </div>
               <div className="text-[11px] text-zinc-600">
                 These leads will instantly appear in their personal work queue and disappear from unassigned pool.
